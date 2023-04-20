@@ -1,21 +1,20 @@
 #include <LiquidCrystal_I2C.h>
 #include <TM1638plus.h>
 
-// Adjust these constants according to your setup
+
 #define STB_PIN 7
 #define CLK_PIN 6
 #define DIO_PIN 5
 
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-const uint8_t buzzerPin = 9; // Change this to the pin you've connected the buzzer to
-const uint16_t SHORT_BEEP_DURATION = 1; // Duration in milliseconds for the short beep
-const uint16_t LONG_BEEP_DURATION = 3; // Duration in milliseconds for the long beep
+const uint8_t buzzerPin = 9; 
+const uint16_t SHORT_BEEP_DURATION = 1; 
+const uint16_t LONG_BEEP_DURATION = 3; 
 
-// Create TM1638plus object (set to 1 for common anode, 0 for common cathode)
 TM1638plus tm(STB_PIN, CLK_PIN, DIO_PIN);
 
-// Function prototypes
+
 void generateSequence(uint8_t *sequence, uint8_t length);
 void displaySequence(uint8_t *sequence, uint8_t length);
 void playBuzzer(uint16_t duration);
@@ -25,33 +24,33 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
-  // Initialize TM1638 module
+
   tm.displayBegin();
   tm.brightness(7);
   lcd.print("PUT THE NUMBERS");
-  // Initialize buzzer pin
+
   pinMode(buzzerPin, OUTPUT);
 
 
-  // Seed the random number generator
+
   randomSeed(analogRead(0));
 }
 
 void loop() {
-  const uint8_t sequenceLength = 4; // Change this value to increase/decrease sequence length
+  const uint8_t sequenceLength = 4;
   uint8_t sequence[sequenceLength];
 
   // Generate and display the sequence
   generateSequence(sequence, sequenceLength);
   displaySequence(sequence, sequenceLength);
-  delay(3000); // Display sequence for 3 seconds before clearing
+  delay(3000);
 
-  tm.reset(); // Clear TM1638 module
+  tm.reset(); 
 
   uint8_t inputIndex = 0;
   bool isCorrect = true;
 
-  lcd.clear(); // Clear LCD screen for displaying input numbers
+  lcd.clear(); 
 
   while (inputIndex < sequenceLength && isCorrect) {
     uint16_t buttons = tm.readButtons();
@@ -60,15 +59,15 @@ void loop() {
       if (buttons & (1 << (i - 1))) {
         if (sequence[inputIndex] == i) {
           // Correct input
-          tm.setLED(0xff, inputIndex); // Turn on the LED corresponding to the correct input position
+          tm.setLED(0xff, inputIndex); 
           lcd.setCursor(inputIndex * 4, 0);
-          lcd.print(i); // Print the correct input number on the LCD screen
+          lcd.print(i); 
           playBuzzer(SHORT_BEEP_DURATION);
           inputIndex++;
         } else {
           isCorrect = false;
         }
-        delay(200); // Button debounce
+        delay(200); 
       }
     }
   }
@@ -79,7 +78,7 @@ void loop() {
     wrongAnswer();
   }
 
-  // Reset for next attempt or challenge
+
   delay(3000);
   tm.reset();
   lcd.clear();
@@ -87,7 +86,7 @@ void loop() {
 
 void generateSequence(uint8_t *sequence, uint8_t length) {
   for (uint8_t i = 0; i < length; i++) {
-    sequence[i] = random(1, 9); // Generate random number between 1 and 8
+    sequence[i] = random(1, 9); 
   }
 }
 
@@ -108,10 +107,10 @@ void playBuzzer(uint16_t duration) {
 
 void blinkLeds() {
     for (int i = 0; i < 3; i++) {
-    tm.setLEDs(0xFF00); // Turn all the LEDs on
-    delay(500); // Wait for half a second
-    tm.setLEDs(0x0000); // Turn all the LEDs off
-    delay(500); // Wait for half a second
+    tm.setLEDs(0xFF00); 
+    delay(500); 
+    tm.setLEDs(0x0000);
+    delay(500); 
   }
 }
 void playAlarm() {
