@@ -4,8 +4,8 @@
 #define STB_PIN 7
 #define CLK_PIN 6
 #define DIO_PIN 5
-const uint8_t buzzerPin = 9;
-const uint16_t SHORT_BEEP_DURATION = 1;
+#define buzzerPin 9
+const uint16_t SHORT_BEEP_DURATION = 2;
 const uint16_t LONG_BEEP_DURATION = 3;
 const uint8_t sequenceLength = 4;
 
@@ -58,39 +58,54 @@ class CustomTM1638 {
 CustomLCD lcd(0x27, 16, 2);
 CustomTM1638 tm(STB_PIN, CLK_PIN, DIO_PIN);
 
-//i added this because without this block lcd doesnt display properly
-void generateSequence(uint8_t *sequence, uint8_t length);
-void playBuzzer(uint16_t duration);
-void correctAnswer();
-void wrongAnswer();
-void blinkLeds();
-void playAlarm();
 
 void setup() {
-  // Initialize LCD and TM1638
   lcd.init();
   tm.init();
-
-  // Show message on LCD
   lcd.print("PUT THE NUMBERS");
-
-  // Initialize buzzer pin and random seed
   pinMode(buzzerPin, OUTPUT);
   randomSeed(analogRead(0));
 }
+
 void loop() {
+  unsigned long initialTimeout = 5000;
+  unsigned long currentTimeout = initialTimeout;
+  uint16_t score = 0;
+
+  while (true) {
+    playRound(currentTimeout, score);
+  }
+}
+
+void playRound(unsigned long &currentTimeout, uint16_t &score) {
   uint8_t sequence[sequenceLength];
 
-  // Generate and display the sequence
   generateSequence(sequence, sequenceLength);
   tm.displaySequence(sequence, sequenceLength);
-  delay(3000);
+  delay(1200);
 
   tm.reset();
   lcd.clear();
 
+  bool isCorrect = processInputs(sequence, currentTimeout, score);
+  displayResult(isCorrect);
+
+  if (isCorrect) {
+    increaseDifficulty(currentTimeout);
+  } else {
+    resetDifficulty(currentTimeout);
+  }
+
+  displayScore(score);
+  delay(2000);
+  tm.reset();
+  lcd.clear();
+}
+
+bool processInputs(const uint8_t *sequence, unsigned long currentTimeout, uint16_t &score) {
   uint8_t inputIndex = 0;
   bool isCorrect = true;
+  unsigned long startTime = millis();
 
   while (inputIndex < sequenceLength && isCorrect) {
     uint16_t buttons = tm.readButtons();
@@ -98,9 +113,7 @@ void loop() {
     for (uint8_t i = 1; i <= 8; i++) {
       if (buttons & (1 << (i - 1))) {
         if (sequence[inputIndex] == i) {
-          tm.setLED(0xff, inputIndex);
-          lcd.print(String(i).c_str(), inputIndex * 4, 0);
-          playBuzzer(SHORT_BEEP_DURATION);
+          handleCorrectInput(inputIndex, i, score);
           inputIndex++;
         } else {
           isCorrect = false;
@@ -108,17 +121,47 @@ void loop() {
         delay(200);
       }
     }
+
+    if (isTimedOut(startTime, currentTimeout)) {
+      isCorrect = false;
+      break;
+    }
   }
 
+  return isCorrect;
+}
+
+void handleCorrectInput(uint8_t inputIndex, uint8_t inputValue, uint16_t &score) {
+  tm.setLED(0xff, inputIndex);
+  lcd.print(String(inputValue).c_str(), inputIndex * 4, 0);
+  playBuzzer(SHORT_BEEP_DURATION-1);
+  score++;
+}
+
+void displayResult(bool isCorrect) {
   if (isCorrect) {
     correctAnswer();
   } else {
     wrongAnswer();
   }
+}
 
-  delay(3000);
-  tm.reset();
-  lcd.clear();
+void increaseDifficulty(unsigned long &currentTimeout) {
+  unsigned long decrementFactor = 600;
+  currentTimeout -= decrementFactor;
+  if (currentTimeout < decrementFactor) {
+    currentTimeout = decrementFactor;
+  }
+}
+
+void resetDifficulty(unsigned long &currentTimeout) {
+  unsigned long initialTimeout = 5000;
+  currentTimeout = initialTimeout;
+}
+
+void displayScore(uint16_t score) {
+  lcd.print("Score: ", 0, 1);
+  lcd.print(String(score).c_str(), 7, 1);
 }
 
 void generateSequence(uint8_t *sequence, uint8_t length) {
@@ -137,28 +180,33 @@ void playBuzzer(uint16_t duration) {
 }
 
 void correctAnswer() {
+  lcd.clear();
   tm.setLEDs(0xFF00);
   lcd.print("Correct!");
+  playBuzzer(LONG_BEEP_DURATION);
 }
 
 void wrongAnswer() {
   blinkLeds();
   playAlarm();
-  lcd.print("Incorrect!", 0, 0);
-  lcd.print("TRY AGAIN", 0, 1);
+  lcd.print("Game Over!", 0, 0);
 }
 
 void blinkLeds() {
   for (int i = 0; i < 3; i++) {
     tm.setLEDs(0xFF00);
-    delay(500);
+    delay(300);
     tm.setLEDs(0x0000);
-    delay(500);
+    delay(300);
   }
 }
 
+bool isTimedOut(unsigned long startTime, unsigned long timeout) {
+  return (millis() - startTime) > timeout;
+}
+
 void playAlarm() {
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 3; i++) {
     playBuzzer(SHORT_BEEP_DURATION);
     delay(50);
   }
