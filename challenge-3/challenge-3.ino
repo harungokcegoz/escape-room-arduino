@@ -4,11 +4,12 @@
 #define STB_PIN 7
 #define CLK_PIN 6
 #define DIO_PIN 5
-const uint8_t buzzerPin = 9;
+#define buzzerPin 9
+
 const uint16_t SHORT_BEEP_DURATION = 2;
 const uint16_t LONG_BEEP_DURATION = 5;
 const uint8_t sequenceMaxLength = 5;
-
+uint8_t score = 0;
 
 class CustomLCD {
   public:
@@ -94,28 +95,28 @@ CustomLCD lcd(0x27, 16, 2);
 CustomTM1638 tm(STB_PIN, CLK_PIN, DIO_PIN);
 
 
-
 void setup() {
+  initializeGame();
+}
+
+void loop() {
+  playGame();
+}
+void initializeGame() {
   pinMode(buzzerPin, OUTPUT);
   lcd.init();
   tm.init();
 }
-
-void loop() {
-  uint8_t currentSequence[sequenceMaxLength];
+void playGame() {
+    uint8_t currentSequence[sequenceMaxLength];
   uint8_t sequenceLength = 3;
 
   for (uint8_t round = 1; round <= sequenceMaxLength; round++) {
-    lcd.clear();
-    lcd.print("Round: ", 0, 0);
-    lcd.print(round, 7, 0);
-
+    displayRoundNumber(round);
     generateRandomSequence(currentSequence, sequenceLength);
-    
     displaySequence(currentSequence, sequenceLength);
 
-    //Check user input
-    if (checkUserInput(currentSequence, sequenceLength)) {
+    if (checkUserInput(currentSequence, sequenceLength, 5000)) {
       correctAnswer();
       sequenceLength++;
       delay(1000);
@@ -124,11 +125,21 @@ void loop() {
       break;
     }
   }
+  displayGameOver();
+}
+void displayRoundNumber(uint8_t round) {
+  lcd.clear();
+  lcd.print("Round: ", 0, 0);
+  lcd.print(round, 7, 0);
+  lcd.print("Score:", 0, 1);
+  lcd.print(score, 7, 1);
+}
+
+void displayGameOver() {
   lcd.clear();
   lcd.print("Game Over", 0, 0);
   delay(3000);
 }
-
 void generateRandomSequence(uint8_t sequence[], uint8_t length) {
   for (uint8_t i = 0; i < length; i++) {
     sequence[i] = random(1, 9);
@@ -137,30 +148,73 @@ void generateRandomSequence(uint8_t sequence[], uint8_t length) {
 
 void displaySequence(uint8_t sequence[], uint8_t length) {
   for (uint8_t i = 0; i < length; i++) {
-    tm.setLED(sequence[i], 0x01);
-    delay(400);
-    // tm.setLED(sequence[i], 0x00);
-    tm.setLEDs(0x00);
+    showLEDAndPlayBuzzer(sequence[i]);
     delay(200);
   }
 }
+void showLEDAndPlayBuzzer(uint8_t ledNumber) {
+  tm.setLED(ledNumber, 0x01);
+  delay(400);
+  playBuzzer(SHORT_BEEP_DURATION - 1);
+  tm.setLEDs(0x00);
+}
+// bool checkUserInput(uint8_t sequence[], uint8_t length, unsigned long timeout) {
+//   uint16_t buttonsArray[length];
+//   uint8_t currentIndex = 0;
+//   unsigned long startTime = millis();
 
-bool checkUserInput(uint8_t sequence[], uint8_t length) {
+//   while (currentIndex < length) {
+//     while (tm.readButtons() != 0) {
+//       currentIndex = handleButtonPress(currentIndex, buttonsArray);
+//     }
+//     if (isTimeout(startTime, timeout)) {
+//       return false;
+//     }
+//   }
+//   return isUserInputCorrect(sequence, buttonsArray, length);
+// }
+bool checkUserInput(uint8_t sequence[], uint8_t length, unsigned long timeout) {
   uint16_t buttonsArray[length];
-  uint8_t currentIndex = 0; 
-  
-  while (currentIndex < length) { 
-    while(tm.readButtons() != 0){
-      uint16_t button = tm.readButtons();
-      uint8_t butNum = tm.getButtonNumber(button);
-      tm.setLED(butNum, 0x01);
-      delay(400);
-      tm.setLEDs(0x0000);
-      buttonsArray[currentIndex] = butNum;
-      currentIndex++;
+  uint8_t currentIndex = 0;
+  unsigned long startTime = millis();
+
+  while (currentIndex < length) {
+    displayRemainingTimeOnLED(timeout, startTime);
+    while (tm.readButtons() != 0) {
+      currentIndex = handleButtonPress(currentIndex, buttonsArray);
+    }
+    if (isTimeout(startTime, timeout)) {
+      return false;
     }
   }
+  return isUserInputCorrect(sequence, buttonsArray, length);
+}
 
+void displayRemainingTimeOnLED(unsigned long timeout, unsigned long startTime) {
+  int remainingTime = getRemainingTime(startTime, timeout);
+  tm.displayASCII(4, '0' + (remainingTime / 1000) % 10);
+  tm.displayASCII(5, '0' + (remainingTime / 100) % 10);
+  tm.displayASCII(6, '0' + (remainingTime / 10) % 10);
+  tm.displayASCII(7, '0' + remainingTime % 10);
+}
+
+int getRemainingTime(unsigned long startTime, unsigned long timeout) {
+  unsigned long elapsedTime = millis() - startTime;
+  return (timeout - elapsedTime) / 1000;
+}
+uint8_t handleButtonPress(uint8_t currentIndex, uint16_t buttonsArray[]) {
+  uint16_t button = tm.readButtons();
+  uint8_t buttonNumber = tm.getButtonNumber(button);
+  showLEDAndPlayBuzzer(buttonNumber);
+  buttonsArray[currentIndex] = buttonNumber;
+  return ++currentIndex;
+}
+
+bool isTimeout(unsigned long startTime, unsigned long timeout) {
+  return millis() - startTime > timeout;
+}
+
+bool isUserInputCorrect(uint8_t sequence[], uint16_t buttonsArray[], uint8_t length) {
   for (int i = 0; i < length; i++) {
     if (sequence[i] != buttonsArray[i]) {
       return false;
@@ -169,8 +223,6 @@ bool checkUserInput(uint8_t sequence[], uint8_t length) {
   return true;
 }
 
-
-
 //// default methods
 void correctAnswer() {
   lcd.clear();
@@ -178,6 +230,7 @@ void correctAnswer() {
   tm.setLEDs(0xFF00);
   playBuzzer(SHORT_BEEP_DURATION);
   tm.setLEDs(0x0000);
+  score += 25;
 }
 
 void wrongAnswer() {
@@ -185,6 +238,7 @@ void wrongAnswer() {
   lcd.print("Incorrect!", 0, 0);
   blinkLeds();
   playAlarm();
+  score = 0;
 }
 
 void blinkLeds() {
