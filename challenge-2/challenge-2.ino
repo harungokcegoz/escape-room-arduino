@@ -4,16 +4,17 @@
 #define STB_PIN 7
 #define CLK_PIN 6
 #define DIO_PIN 5
-const uint8_t buzzerPin = 9;
+#define buzzerPin 9
+#define potentiometerPin 8
+
 const uint16_t SHORT_BEEP_DURATION = 1;
 const uint16_t LONG_BEEP_DURATION = 3;
-const uint8_t sequenceLength = 4;
-const uint8_t potentiometerPin = 8;
-const uint8_t targetPrecision = 5;
 const uint16_t gameTime = 20000; 
-const uint8_t maxRounds = 5;
 const float smoothingFactor = 0.1;
+uint8_t targetPrecision = 9;
 float smoothedPotValue = 0;
+int lockerCode[4];
+int correctNumbersCount = 0;
 
 
 class CustomLCD {
@@ -68,80 +69,138 @@ class CustomTM1638 {
     TM1638plus tm;
 };
 
-
-
 CustomLCD lcd(0x27, 16, 2);
 CustomTM1638 tm(STB_PIN, CLK_PIN, DIO_PIN);
 
 
-void generateSequence(uint8_t *sequence, uint8_t length);
-void playBuzzer(uint16_t duration);
-void correctAnswer();
-void wrongAnswer();
-void blinkLeds();
-void playAlarm();
-
-int roundResults[maxRounds];
-int currentRound = 0;
-int currentScore = 0;
-
-
 void setup() {
+  initializeGame();
+}
+
+void loop() {
+  playGame();
+}
+
+void initializeGame() {
   lcd.init();
   tm.init();
-
   pinMode(buzzerPin, OUTPUT);
   pinMode(potentiometerPin, INPUT);
-
   randomSeed(analogRead(0));
 }
 
-
-void loop() {
-  if(currentRound < maxRounds) {
-    int targetValue = random(350, 999);
-    tm.displayASCII(0, '0' + (targetValue / 100) % 10);
-    tm.displayASCII(1, '0' + (targetValue / 10) % 10);
-    tm.displayASCII(2, '0' + targetValue % 10);
-
-    unsigned long startTime = millis();
-    unsigned long elapsedTime = 0;
-    bool isCorrect = false;
-
-    while (elapsedTime < gameTime && !isCorrect) {
-      int potValue = analogRead(potentiometerPin);
-      int adjustedValue = map(potValue, 350, 1023, 0, 2000);
-
-      lcd.clear();
-      lcd.print("Value:", 0, 0);
-      lcd.print(adjustedValue, 6, 0);
-
-      if (abs(targetValue - adjustedValue) <= targetPrecision) {
-        isCorrect = true;
-        break;
-      }
-      elapsedTime = millis() - startTime;
-      delay(100);
-    }
-
-    if (isCorrect) {
-      correctAnswer();
-    } else {
-      wrongAnswer();
-    }
-    currentRound++;
-    delay(3000);
-    tm.reset();
-    lcd.clear();
-  } else {
-    lcd.clear();
-    displayResults();
-    delay(5000);
-    resetGame();
+void playGame() {
+  while (correctNumbersCount < 4) {
+    playRound();
   }
+  lockerUnlocked();
 }
 
 
+void playRound() {
+  int targetValue = generateTargetValue();
+  displayTargetValue(targetValue);
+  unsigned long startTime = millis();
+  bool isCorrect = false;
+  int previousRemainingTime = -1;
+  int previousAdjustedValue = -1;
+
+  while (!isCorrect && !isTimeUp(startTime)) {
+    delay(200);
+    int adjustedValue = readPotentiometer();
+    int remainingTime = getRemainingTime(startTime);
+    if (remainingTime != previousRemainingTime || adjustedValue != previousAdjustedValue) {
+      displayValueAndTime(adjustedValue, remainingTime);
+      previousRemainingTime = remainingTime;
+      previousAdjustedValue = adjustedValue;
+    }
+    isCorrect = isValueCorrect(targetValue, adjustedValue);
+  }
+
+  if (isCorrect) {
+    correctAnswer();
+  } else{
+    timeIsUp();
+  }
+
+  tm.reset();
+  lcd.clear();
+}
+
+void timeIsUp(){
+    lcd.clear();
+    tm.reset();
+    blinkLeds();
+    playAlarm();
+    lcd.print("Time is up.", 0, 0);
+    lcd.print("Try again.", 0, 1);
+    delay(3000);
+}
+int generateTargetValue() {
+  return random(350, 999);
+}
+
+void displayTargetValue(int targetValue) {
+  tm.displayASCII(0, '0' + (targetValue / 100) % 10);
+  tm.displayASCII(1, '0' + (targetValue / 10) % 10);
+  tm.displayASCII(2, '0' + targetValue % 10);
+}
+
+bool isTimeUp(unsigned long startTime) {
+  return millis() - startTime >= gameTime;
+}
+
+int readPotentiometer() {
+  int potValue = analogRead(potentiometerPin);
+  return map(potValue, 350, 1023, 350, 1023);
+}
+int getRemainingTime(unsigned long startTime) {
+  return (gameTime - (millis() - startTime)) / 1000;
+}
+void displayValueAndTime(int adjustedValue, int remainingTime) {
+  lcd.clear();
+  lcd.print("Value:", 0, 0);
+  lcd.print(adjustedValue, 6, 0);
+  tm.displayASCII(4, '0' + (remainingTime / 1000) % 10);
+  tm.displayASCII(5, '0' + (remainingTime / 100) % 10);
+  tm.displayASCII(6, '0' + (remainingTime / 10) % 10);
+  tm.displayASCII(7, '0' + remainingTime % 10);
+}
+
+bool isValueCorrect(int targetValue, int adjustedValue) {
+  return abs(targetValue - adjustedValue) <= targetPrecision;
+}
+
+void displayResult() {
+  lcd.clear();
+  tm.setLEDs(0xFF00);
+  playBuzzer(SHORT_BEEP_DURATION);
+  lcd.print("Success!", 0, 0);
+  lcd.print("Opened!", 0, 1);
+  delay(3000);
+  lcd.clear();
+  lcd.print("The new game is starting!", 0, 1);
+  delay(3000);
+}
+
+void resetGame() {
+  correctNumbersCount = 0;
+  for (int i = 0; i < 4; i++) {
+    lockerCode[i] = -1;
+  }
+}
+
+void lockerUnlocked() {
+  lcd.clear();
+  tm.setLEDs(0xFF00);
+  playBuzzer(LONG_BEEP_DURATION);
+  lcd.print("Success!", 0, 0);
+  lcd.print("Opened!", 0, 1);
+  delay(3000);
+  tm.setLEDs(0x00);
+  resetGame();
+}
+//default
 void generateSequence(uint8_t *sequence, uint8_t length) {
   for (uint8_t i = 0; i < length; i++) {
     sequence[i] = random(1, 9);
@@ -158,27 +217,29 @@ void playBuzzer(uint16_t duration) {
 }
 
 void correctAnswer() {
-  roundResults[currentRound] = 1;
-  currentScore++;
   lcd.clear();
-  lcd.print("Correct!");
   tm.setLEDs(0xFF00);
   playBuzzer(SHORT_BEEP_DURATION);
+  lcd.print("Correct!");
+  displayLockerCode();
+  correctNumbersCount++;
+  targetPrecision -= 2;
 }
 
-void wrongAnswer() {
-  roundResults[currentRound] = 0;
-  lcd.clear();
-  lcd.print("Incorrect!", 0, 0);
-  blinkLeds();
-  playAlarm();
+void displayLockerCode(){
+  uint8_t randomNumber = random(0, 9);
+  lcd.print("Locker Code:",0,1);
+  lockerCode[correctNumbersCount] = randomNumber;
+  for (int i = 0; i <= correctNumbersCount; i++) {
+    lcd.print(lockerCode[i], i + 12, 1);
+  }
 }
 
 void blinkLeds() {
   for (int i = 0; i < 3; i++) {
     tm.setLEDs(0xFF00);
     delay(500);
-    tm.setLEDs(0x0000);
+    tm.setLEDs(0x00);
     delay(500);
   }
 }
@@ -188,29 +249,4 @@ void playAlarm() {
     playBuzzer(SHORT_BEEP_DURATION);
     delay(50);
   }
-}
-
-void displayResults() {
-  lcd.clear();
-  lcd.print("RESULT", 0, 0);
-  int score = (currentScore * 100) / maxRounds;
-  lcd.print("Score:", 0, 1);
-  lcd.print(score, 7, 1);
-}
-
-void resetGame() {
-  currentRound = 0;
-  for (int i = 0; i < maxRounds; i++) {
-    roundResults[i] = 0;
-  }
-}
-
-int getScore() {
-  int correctAnswers = 0;
-  for (int i = 0; i < maxRounds; i++) {
-    if (roundResults[i] == 1) {
-      correctAnswers++;
-    }
-  }
-  return (correctAnswers * 100) / maxRounds;
 }
