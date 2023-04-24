@@ -2,14 +2,18 @@
  
 ## System Build
 ### 1
-![IMG_5433](https://user-images.githubusercontent.com/94520965/234025297-c9233c41-9de6-4624-b4cd-96605150c159.png)
+
+![IMG_5433](https://user-images.githubusercontent.com/94520965/234026560-1b0fe749-e0b7-430e-8e16-d1d50668888f.png)
 
 ### 2
-![IMG_5437](https://user-images.githubusercontent.com/94520965/234024840-2e6d20ca-4552-4b55-b738-2fdc8317ef8f.png)
+![IMG_5437](https://user-images.githubusercontent.com/94520965/234026593-0d40c16b-d022-4af2-9477-279e6e1a3919.png)
+
 ### 3
-![IMG_5438](https://user-images.githubusercontent.com/94520965/234024855-86357711-0f4f-4f73-9863-8840af33b2ed.png)
+![IMG_5432](https://user-images.githubusercontent.com/94520965/234026637-9dcf1b23-ce83-4aad-8bb2-18dda677d67f.png)
+
 ### 4
-![IMG_5439](https://user-images.githubusercontent.com/94520965/234024868-bcafd8b0-6080-480c-999b-54bbf6f82009.png)
+![IMG_5439](https://user-images.githubusercontent.com/94520965/234026684-a88d8105-f8ef-41da-b0af-4f8afd8feeca.png)
+
 
 
 ## Challenge-1
