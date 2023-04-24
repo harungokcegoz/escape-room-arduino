@@ -2,7 +2,8 @@
  
 ## System Build
 ### 1
-![IMG_5433](https://user-images.githubusercontent.com/94520965/234024817-89ea4f57-4fe2-4b97-ae31-a4d4ba56cd00.png)
+![IMG_5433](https://user-images.githubusercontent.com/94520965/234025297-c9233c41-9de6-4624-b4cd-96605150c159.png)
+
 ### 2
 ![IMG_5437](https://user-images.githubusercontent.com/94520965/234024840-2e6d20ca-4552-4b55-b738-2fdc8317ef8f.png)
 ### 3
