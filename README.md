@@ -1,5 +1,5 @@
 # ARDUINO CHALLENGES
- 
+I explained challenges below(just after setup images).
 ## System Build
 ### 1
 
