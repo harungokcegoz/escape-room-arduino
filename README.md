@@ -11,10 +11,6 @@
 ### 3
 ![IMG_5432](https://user-images.githubusercontent.com/94520965/234026637-9dcf1b23-ce83-4aad-8bb2-18dda677d67f.png)
 
-### 4
-![IMG_5439](https://user-images.githubusercontent.com/94520965/234026684-a88d8105-f8ef-41da-b0af-4f8afd8feeca.png)
-
-
 
 ## Challenge-1
 ### Title: Fast Number Challenge
